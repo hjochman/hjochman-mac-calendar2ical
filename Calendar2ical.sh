@@ -65,24 +65,6 @@ function output_ical_header() {
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:hp-jochmann.de/mac-calendar2ical v1.0
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-BEGIN:VTIMEZONE
-TZID:Europe/Berlin
-LAST-MODIFIED:20230411T190536Z
-BEGIN:STANDARD
-DTSTART:20051030T010000
-TZOFFSETTO:+0100
-TZOFFSETFROM:+0000
-TZNAME:CET
-END:STANDARD
-BEGIN:DAYLIGHT
-DTSTART:20060326T030000
-TZOFFSETTO:+0200
-TZOFFSETFROM:+0100
-TZNAME:CEST
-END:DAYLIGHT
-END:VTIMEZONE
 ENDOFTEXT
 }
 
@@ -114,7 +96,7 @@ convertMacAbsoluteTimeOld () {
   MAC=$1
   MAC_ROUND=`truncateFloat ${MAC}`
   RESULT=`echo "${MAC_ROUND} + ${UNIX_TO_MAC_SECONDS}" | bc`
-  echo `date -r ${RESULT} +%Y%m%dT%H%M%SZ`
+  echo `date -r ${RESULT} +%Y%m%dT%H%M%S`
 }
 
 convertMacAbsoluteTime () {
@@ -123,7 +105,9 @@ convertMacAbsoluteTime () {
 # sqlite3 requires a database file to be specified to executed queries
   MAC=$1
   MAC_ROUND=`truncateFloat ${MAC}`
-  echo `date -r ${MAC_ROUND} -v+31y -v+1d +%Y%m%dT%H%M%SZ`
+#  echo `date -r ${MAC_ROUND} -v+31y -v+1d +%Y%m%dT%H%M%S`
+# 20240409 -v+1d scheint nicht mher nötig zu sein
+  echo `date -r ${MAC_ROUND} -v+31y +%Y%m%dT%H%M%S`
 }
 
 ######  Main ################
@@ -168,7 +152,7 @@ do
   END_DATE=`convertMacAbsoluteTime $END_DATE_RAW`
   #echo "==========> DEBUG: conv mod"
   if [[ "x$LAST_MODIFIED_RAW" == "x" ]]; then
-    LAST_MODIFIED=$(date -u +%Y%m%dT%H%M%SZ) 
+    LAST_MODIFIED=$(date -u +%Y%m%dT%H%M%S) 
   else
     LAST_MODIFIED=`convertMacAbsoluteTime $LAST_MODIFIED_RAW`
   fi
@@ -180,13 +164,16 @@ do
 
   if [[ $HAS_OC == "0" ]]; then
     if [[ ${CALENDAR_START_MAC} -le ${START_DATE_RAW%.*} ]] && [[ ${CALENDAR_END_MAC} -ge ${START_DATE_RAW%.*} ]] ; then
-      printf "BEGIN:VEVENT\nUID:%s\nDTSTAMP;TZID=Europe/Berlin:%s\n" \
+      printf "BEGIN:VEVENT\nUID:%s\nDTSTAMP:%s\n" \
              "${ITEM}" "${LAST_MODIFIED}" 
       if [[ $ALL_DAY == "1" ]]; then
-        printf "DTSTART;TZID=Europe/Berlin;VALUE=DATE:%s\n" \
-               "${START_DATE:0:8}" 
+#        printf "DTSTART;VALUE=DATE:%s\n" \
+#               "${START_DATE:0:8}" 
+# 240409 Auch all day können mehrtätig sein
+        printf "DTSTART;VALUE=DATE:%s\nDTEND;VALUE=DATE:%s\n" \
+               "${START_DATE:0:8}"  "${END_DATE:0:8}"
       else
-        printf "DTSTART;TZID=Europe/Berlin:%s\nDTEND;TZID=Europe/Berlin:%s\n" \
+        printf "DTSTART:%s\nDTEND:%s\n" \
                "${START_DATE}" "${END_DATE}"
       fi
       printf "SUMMARY:%s\nLOCATION:%s\nDESCRIPTION:%s\nEND:VEVENT\n" \
@@ -213,13 +200,13 @@ do
       #echo $OC_END_DATE
       #echo "==========> ${CALENDAR_START_MAC}<${OC_DATE_RAW%.*}<${CALENDAR_END_MAC} DEBUG_OC: ${ocItem}"
       if [[ ${CALENDAR_START_MAC} -le ${OC_DATE_RAW%.*} ]] && [[ ${CALENDAR_END_MAC} -ge ${OC_DATE_RAW%.*} ]] ; then
-        printf "BEGIN:VEVENT\nUID:%s\nDTSTAMP;TZID=Europe/Berlin:%s\n" \
+        printf "BEGIN:VEVENT\nUID:%s\nDTSTAMP:%s\n" \
                "${ITEM}-${OC_DATE}" "${LAST_MODIFIED}" 
         if [[ $ALL_DAY == "1" ]]; then
-          printf "DTSTART;TZID=Europe/Berlin;VALUE=DATE:%s\n" \
+          printf "DTSTART;VALUE=DATE:%s\n" \
                  "${OC_DATE:0:8}" 
         else
-          printf "DTSTART;TZID=Europe/Berlin:%s\nDTEND;TZID=Europe/Berlin:%s\n" \
+          printf "DTSTART:%s\nDTEND:%s\n" \
                  "${OC_DATE}" "${OC_END_DATE}" 
         fi
         printf "SUMMARY:%s\nLOCATION:%s\nDESCRIPTION:%s\nEND:VEVENT\n" \
